@@ -5,39 +5,34 @@ import responses as resp
 import client
 import bot_lib as lib
 
-# Instantiate Slack Client
+# Instantiate client as a Slack Client
 bot_client = client.Slack_Client()
 
-# Training bot ID, will be assigned later.
+# Bot ID in the chat application, will be assigned later.
 bot_id = None
 
 # Constants
-RTM_READ_DELAY = 1 # 1 sec delay between reading from RTM
+READ_INTERVAL = 1 # 1 sec delay between reading from the interface.
 MENTION_REGEX = "^<@(|[WU].+)>(.*)"
 
-def parse_direct_mention(message):
+def parse_mention(message):
 
     matches = re.search(MENTION_REGEX, message)
     return (matches.group(1), matches.group(2).strip()) if matches else (None, None)
 
-def parse_commands(slack_events):
+def parse_commands(events):
 
-    for event in slack_events:
+    for event in events:
         if event["type"] == "message" and not "subtype" in event:
-            user_id, message = parse_direct_mention(event["text"])
+            user_id, message = parse_mention(event["text"])
             if user_id == bot_id:
                 return message, event["channel"]
-
+            
     return None, None
 
 def handle_command(command, channel):
-    """
-        Executes bot command if the command is known
-    """
-
-    # Finds and executes the given command, filling in response
+    
     response = None
-    # This is where you start to implement more commands!
     if command.startswith(cmd.HELP):
         response = resp.HELP
     elif command == cmd.PIRATE:
@@ -47,7 +42,6 @@ def handle_command(command, channel):
     elif command == cmd.BITCOIN_ACTUAL_PRICE:
         response = lib.get_bitcoin_price()
 
-    # Sends the response back to the channel
     bot_client.post_message("chat.postMessage", channel, response)
 
 if __name__ == "__main__":
@@ -55,13 +49,13 @@ if __name__ == "__main__":
         print("Bot connected and active...")
         print("Interface: " + bot_client.interface)
 
-        # Read bot's user ID by calling Web API method `auth.test`
         bot_id = bot_client.get_bot_id()
 
         while True:
             command, channel = parse_commands(bot_client.read_message())
+            
             if command:
                 handle_command(command, channel)
-            time.sleep(RTM_READ_DELAY)
+            time.sleep(READ_INTERVAL)
     else:
         print("Connection failed.")
